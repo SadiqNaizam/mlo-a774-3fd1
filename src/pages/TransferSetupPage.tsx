@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -17,6 +17,20 @@ const TransferSetupPage = () => {
   const navigate = useNavigate();
   const [step, setStep] = useState<'pairing' | 'confirming' | 'selection'>('pairing');
   const [selectedDataTypes, setSelectedDataTypes] = useState<string[]>([]);
+  const [pairingInfo, setPairingInfo] = useState<{ url: string; pin: string } | null>(null);
+
+  // Generate a unique pairing session URL and PIN on mount
+  useEffect(() => {
+    // Generate a unique session ID for the QR code
+    const sessionId = crypto.randomUUID();
+    // Generate a user-friendly PIN for manual entry
+    const pin = `${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
+
+    setPairingInfo({
+      url: `https://datamover.app/pair?session=${sessionId}`,
+      pin: pin
+    });
+  }, []);
 
   // Simulate pairing confirmation after a delay to mimic a real connection process
   const handlePairingComplete = () => {
@@ -25,6 +39,18 @@ const TransferSetupPage = () => {
       setStep('selection');
     }, 2000); // 2-second delay for simulation
   };
+
+  // Automatically trigger the pairing completion after a delay to simulate a real scan and connection
+  useEffect(() => {
+    if (step === 'pairing' && pairingInfo) {
+      const timer = setTimeout(() => {
+        handlePairingComplete();
+      }, 7000); // 7-second delay to simulate user scanning the code
+
+      return () => clearTimeout(timer);
+    }
+  }, [step, pairingInfo]);
+
 
   const handleBeginTransfer = () => {
     // In a real app, you might pass the selectedDataTypes to the next page via state
@@ -42,13 +68,19 @@ const TransferSetupPage = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3 }}
-            className="w-full"
+            className="w-full flex flex-col items-center"
           >
-            <DevicePairingCard />
-            <div className="mt-8 text-center">
-              <Button size="lg" onClick={handlePairingComplete}>
-                Simulate Device Paired
-              </Button>
+            {pairingInfo ? (
+              <DevicePairingCard pairingUrl={pairingInfo.url} pairingPin={pairingInfo.pin} />
+            ) : (
+              <div className="flex flex-col items-center justify-center h-96 text-center">
+                 <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
+                 <p className="mt-4 text-lg font-medium">Generating secure session...</p>
+              </div>
+            )}
+            <div className="mt-8 text-center text-muted-foreground">
+              <p className="font-medium">Waiting for device to connect...</p>
+              <p className="text-sm">(This will happen automatically)</p>
             </div>
           </motion.div>
         );
